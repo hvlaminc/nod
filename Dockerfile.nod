@@ -21,6 +21,9 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN test -f desktop/scripts/build-ui.mjs \
+ && test -f scripts/start.mjs
+
 RUN pnpm build
 
 ENV NODE_ENV=production
