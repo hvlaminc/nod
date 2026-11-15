@@ -1,20 +1,25 @@
-name: nod-local
 services:
   postgres:
-    image: postgres:17-alpine
+    image: 'postgres:17-alpine'
+    container_name: nod-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: nod
-      POSTGRES_PASSWORD: ${NOD_POSTGRES_PASSWORD:?Run pnpm start from the repository root to set up and start Nod.}
+      POSTGRES_PASSWORD: '${NOD_POSTGRES_PASSWORD:?NOD_POSTGRES_PASSWORD ist erforderlich}'
       POSTGRES_DB: nod
     ports:
       - '127.0.0.1:54329:5432'
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - 'nod-postgres-data:/var/lib/postgresql/data'
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nod']
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U nod'
       interval: 2s
       timeout: 3s
       retries: 30
+    networks:
+      - nod-network
   browser:
     build:
       context: .
@@ -22,71 +27,145 @@ services:
     container_name: nod-browser
     hostname: nod-browser
     init: true
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - 'no-new-privileges:true'
     read_only: true
     pids_limit: 4096
     mem_limit: 8g
-    cpus: ${NOD_BROWSER_CPUS:-6}
+    cpus: '${NOD_BROWSER_CPUS:-4}'
     shm_size: 1g
     volumes:
-      - browser-data:/data
+      - 'nod-browser-data:/data'
     tmpfs:
-      - /tmp:size=1g
-      - /home/node:uid=1000,gid=1000,mode=700,size=256m
+      - '/tmp:size=1g'
+      - '/home/node:uid=1000,gid=1000,mode=700,size=256m'
     healthcheck:
       test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          'const s=require("node:net").connect("/data/control.sock");s.on("connect",()=>{s.end();process.exit(0)});s.on("error",()=>process.exit(1))',
-        ]
+        - CMD
+        - node
+        - '-e'
+        - 'const s=require("node:net").connect("/data/control.sock");s.on("connect",()=>{s.end();process.exit(0)});s.on("error",()=>process.exit(1))'
       interval: 2s
       timeout: 3s
       retries: 30
+    networks:
+      - nod-network
+    image: ''
   workspace:
     build:
       context: .
       dockerfile: Dockerfile.workspace
-    image: nod-local-workspace
+    image: nod-workspace-local
+    pull_policy: never
     container_name: nod-workspace
     init: true
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
     pids_limit: 4096
     mem_limit: 8g
-    cpus: ${NOD_WORKSPACE_CPUS:-4}
+    cpus: ${NOD_WORKSPACE_CPUS:-2}
     volumes:
-      - ${NOD_DATA_ROOT:-./.local}/workspaces:/workspace
-      - workspace-tools:/home/node
-    network_mode: service:workspace-network
+      - nod-workspaces:/workspace
+      - nod-workspace-tools:/home/node
+    network_mode: "service:workspace-network"
     depends_on:
       workspace-network:
         condition: service_healthy
         restart: true
-    command: ['sleep', 'infinity']
+    command:
+      - sleep
+      - infinity
   workspace-network:
-    image: nod-local-workspace
+    build:
+      context: .
+      dockerfile: Dockerfile.workspace
+    image: nod-workspace-network-local
     pull_policy: never
-    dns: [1.1.1.1, 8.8.8.8]
+    container_name: nod-workspace-network
     user: root
     init: true
+    restart: unless-stopped
     entrypoint: /usr/local/bin/nod-workspace-network
-    cap_drop: [ALL]
-    cap_add: [NET_ADMIN]
-    security_opt: [no-new-privileges:true]
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+    security_opt:
+      - "no-new-privileges:true"
     read_only: true
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     tmpfs:
-      - /tmp:size=1m
+      - "/tmp:size=1m"
     pids_limit: 32
     mem_limit: 64m
     healthcheck:
-      test: ['CMD', 'test', '-f', '/tmp/network-ready']
+      test:
+        - CMD
+        - test
+        - "-f"
+        - /tmp/network-ready
       interval: 2s
       timeout: 3s
       retries: 10
+    networks:
+      - nod-network
+  nod:
+    build:
+      context: .
+      dockerfile: Dockerfile.nod
+    container_name: nod-server
+    init: true
+    restart: unless-stopped
+    ports:
+      - '4310:4310'
+    environment:
+      PORT: 4310
+      NOD_HOST: 0.0.0.0
+      NOD_DATA_ROOT: /app/.local
+      DATABASE_URL: 'postgresql://nod:${NOD_POSTGRES_PASSWORD}@postgres:5432/nod'
+      DATABASE_POOL_MAX: '${DATABASE_POOL_MAX:-12}'
+      LLM_PROVIDER: '${LLM_PROVIDER:-openai}'
+      LLM_MODEL: '${LLM_MODEL}'
+      OPENAI_API_KEY: '${OPENAI_API_KEY:-}'
+      ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY:-}'
+      OPENROUTER_API_KEY: '${OPENROUTER_API_KEY:-}'
+      NOD_VAULT_KEY: '${NOD_VAULT_KEY:?NOD_VAULT_KEY ist erforderlich}'
+      WORKSPACE_CONTAINER: nod-workspace
+      BROWSER_CONTAINER: nod-browser
+      NOD_BROWSER_CPUS: '${NOD_BROWSER_CPUS:-4}'
+      NOD_WORKSPACE_CPUS: '${NOD_WORKSPACE_CPUS:-2}'
+    volumes:
+      - 'nod-data:/app/.local'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      browser:
+        condition: service_healthy
+      workspace:
+        condition: service_started
+      workspace-network:
+        condition: service_healthy
+    networks:
+      - nod-network
 volumes:
-  postgres-data:
-  workspace-tools:
-  browser-data:
+  nod-postgres-data:
+    name: nod-postgres-data
+  nod-browser-data:
+    name: nod-browser-data
+  nod-workspace-tools:
+    name: nod-workspace-tools
+  nod-workspaces:
+    name: nod-workspaces
+  nod-data:
+    name: nod-data
+networks:
+  nod-network:
+    name: nod-network
