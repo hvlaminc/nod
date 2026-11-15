@@ -1,0 +1,31 @@
+FROM node:24-bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      git \
+      python3 \
+      make \
+      g++ \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable \
+ && corepack prepare pnpm@10.34.5 --activate
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+
+RUN pnpm build
+
+ENV NODE_ENV=production
+ENV PORT=4310
+ENV NOD_HOST=0.0.0.0
+
+EXPOSE 4310
+
+CMD ["pnpm", "start"]
