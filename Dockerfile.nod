@@ -32,4 +32,4 @@ ENV NOD_HOST=0.0.0.0
 
 EXPOSE 4310
 
-CMD ["pnpm", "start"]
+CMD ["pnpm", "exec", "tsx", "src/server/index.ts"]
