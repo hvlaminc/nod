@@ -129,6 +129,8 @@ services:
     environment:
       PORT: 4310
       NOD_HOST: 0.0.0.0
+      NOD_PUBLIC_URL: "${NOD_PUBLIC_URL}"
+      NOD_AUTH_TOKEN: "${NOD_AUTH_TOKEN}"
       NOD_DATA_ROOT: /app/.local
       DATABASE_URL: 'postgresql://nod:${NOD_POSTGRES_PASSWORD}@postgres:5432/nod'
       DATABASE_POOL_MAX: '${DATABASE_POOL_MAX:-12}'
