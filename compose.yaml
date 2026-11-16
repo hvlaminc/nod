@@ -20,6 +20,26 @@ services:
       retries: 30
     networks:
       - nod-network
+  runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile.runtime
+    init: true
+    restart: unless-stopped
+    environment:
+      WORKSPACE_CONTAINER: workspace-nod-homelab
+      BROWSER_CONTAINER: browser-nod-homelab
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    networks:
+      - nod-control
   browser:
     build:
       context: .
@@ -140,15 +160,19 @@ services:
       ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY:-}'
       OPENROUTER_API_KEY: '${OPENROUTER_API_KEY:-}'
       NOD_VAULT_KEY: '${NOD_VAULT_KEY:?NOD_VAULT_KEY ist erforderlich}'
-      WORKSPACE_CONTAINER: nod-workspace
-      BROWSER_CONTAINER: nod-browser
       NOD_BROWSER_CPUS: '${NOD_BROWSER_CPUS:-4}'
       NOD_WORKSPACE_CPUS: '${NOD_WORKSPACE_CPUS:-2}'
+      DOCKER_HOST: tcp://runtime:2375
+      WORKSPACE_CONTAINER: workspace-nod-homelab
+      BROWSER_CONTAINER: browser-nod-homelab
     volumes:
-      - 'nod-data:/app/.local'
+      - nod-data:/app/.local
+      - nod-workspaces:/app/.local/workspaces
     depends_on:
       postgres:
         condition: service_healthy
+      runtime:
+        condition: service_started
       browser:
         condition: service_healthy
       workspace:
@@ -157,6 +181,7 @@ services:
         condition: service_healthy
     networks:
       - nod-network
+      - nod-control
 volumes:
   nod-postgres-data:
     name: nod-postgres-data
@@ -171,3 +196,5 @@ volumes:
 networks:
   nod-network:
     name: nod-network
+  nod-control:
+    internal: true
