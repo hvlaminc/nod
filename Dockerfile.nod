@@ -1,6 +1,10 @@
+FROM docker:29.8.2-cli AS dockercli
+
 FROM node:24-bookworm-slim
 
 WORKDIR /app
+
+COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
