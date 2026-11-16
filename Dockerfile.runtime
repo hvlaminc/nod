@@ -1,0 +1,7 @@
+FROM node:24.21.0-bookworm-slim
+
+WORKDIR /app
+
+COPY deployment/self-host/docker-proxy.mjs /app/docker-proxy.mjs
+
+CMD ["node", "/app/docker-proxy.mjs"]
