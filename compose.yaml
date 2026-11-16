@@ -142,6 +142,7 @@ services:
       context: .
       dockerfile: Dockerfile.nod
     container_name: nod-server
+    user: "1000:1000"
     init: true
     restart: unless-stopped
     ports:
