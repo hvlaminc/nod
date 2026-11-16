@@ -6,10 +6,10 @@ export function createRuntimeProxy({
   workspace = process.env.WORKSPACE_CONTAINER,
   browser = process.env.BROWSER_CONTAINER,
 } = {}) {
-  if (!/^nod-workspace-[a-zA-Z0-9_-]+$/.test(workspace || ''))
-    throw new Error('A workspace container is required.');
-  if (!/^nod-browser-[a-zA-Z0-9_-]+$/.test(browser || ''))
-    throw new Error('A browser container is required.');
+  if (workspace !== 'workspace-nod-homelab')
+    throw new Error('Expected workspace container: workspace-nod-homelab.');
+  if (browser !== 'browser-nod-homelab')
+    throw new Error('Expected browser container: browser-nod-homelab.');
   const executions = new Map();
   const denied = (response) => response.writeHead(403).end('Runtime operation refused.');
   const gateway = http.createServer(async (request, response) => {
